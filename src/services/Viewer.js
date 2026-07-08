@@ -6,6 +6,8 @@
 import Images from '../models/images.js'
 import Videos from '../models/videos.js'
 import Audios from '../models/audios.js'
+import Photospheres, { enabled as photospheresEnabled } from '../models/photospheres.js'
+import PhotosphereVideos from '../models/photosphereVideos.js'
 import logger from './logger.js'
 
 /**
@@ -19,6 +21,12 @@ import logger from './logger.js'
  * @property {?string} theme viewer modal theme (one of 'dark', 'light', 'default')
  * @property {boolean} canCompare Indicate support for comparing two files
  * @property {?Function} downloadCallback Optional callback to be called before download
+ * @property {?Function} canHandle Optional per-file matcher `(fileInfo) => boolean`.
+ *   When provided, the handler may claim individual files of the declared mime types
+ *   based on the file info (e.g. dav properties), taking precedence over the handler
+ *   the mime type is registered to. This allows apps to provide a specialised view
+ *   for a subset of files sharing a generic mime type (e.g. 360° photospheres
+ *   within image/jpeg).
  */
 
 /**
@@ -63,6 +71,13 @@ export default class Viewer {
 		this.registerHandler(Videos)
 		this.registerHandler(Audios)
 
+		// Photosphere (360°) support is optional and can be
+		// disabled by the administrator
+		if (photospheresEnabled) {
+			this.registerHandler(Photospheres)
+			this.registerHandler(PhotosphereVideos)
+		}
+
 		logger.debug('OCA.Viewer initialized')
 	}
 
@@ -106,7 +121,7 @@ export default class Viewer {
 		}
 	}
 
-	validateHandler({ id, mimes, mimesAliases, component }) {
+	validateHandler({ id, mimes, mimesAliases, component, canHandle }) {
 		// checking valid handler id
 		if (!id || id.trim() === '' || typeof id !== 'string') {
 			return 'The handler doesn\'t have a valid id'
@@ -125,6 +140,11 @@ export default class Viewer {
 		// checking valid handler component data
 		if ((!component || (typeof component !== 'object' && typeof component !== 'function'))) {
 			return 'The handler doesn\'t have a valid component'
+		}
+
+		// checking valid per-file matcher, if any
+		if (canHandle !== undefined && typeof canHandle !== 'function') {
+			return 'The handler canHandle property must be a function'
 		}
 	}
 

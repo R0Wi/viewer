@@ -1,0 +1,2 @@
+import{c as n,g as d,s as o,t as s,l as r,a as i}from"./logger-BVTbvxGn.chunk.mjs";document.addEventListener("DOMContentLoaded",()=>{const e=document.getElementById("viewer-photospheres-enabled");e&&e.addEventListener("change",async()=>{const t=e.checked;e.disabled=!0;try{await n.put(d("/apps/viewer/settings/photospheres"),{enabled:t}),o(s("viewer","Setting saved"))}catch(a){r.error("Could not save the admin settings",{error:a}),e.checked=!t,i(s("viewer","Could not save setting"))}finally{e.disabled=!1}})});
+//# sourceMappingURL=viewer-settings.mjs.map
