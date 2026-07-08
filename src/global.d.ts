@@ -14,6 +14,7 @@ declare global {
 		OCP: Nextcloud.v29.OCP
 	}
 
+	const appName: string
 	const appVersion: string
 }
 

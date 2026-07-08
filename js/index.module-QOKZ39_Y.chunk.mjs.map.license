@@ -1,0 +1,7 @@
+SPDX-License-Identifier: MIT
+SPDX-FileCopyrightText: Damien 'Mistic' Sorel
+
+This file is generated from multiple sources. Included packages:
+- @photo-sphere-viewer/stereo-plugin
+	- version: 5.14.3
+	- license: MIT
