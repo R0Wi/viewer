@@ -40,6 +40,24 @@ export interface IHandler {
 	 * Viewer modal theme (one of 'dark', 'light', 'default')
 	 */
 	theme?: 'dark' | 'light' | 'default'
+
+	/**
+	 * Optional per-file matcher.
+	 *
+	 * When provided, the handler may claim individual files of the declared
+	 * mime types based on the file info (e.g. dav properties), taking
+	 * precedence over the handler the mime type is registered to. This allows
+	 * apps to provide a specialised view for a subset of files sharing a
+	 * generic mime type (e.g. 360° photospheres within image/jpeg).
+	 *
+	 * The callback must be synchronous and side-effect free: it is evaluated
+	 * every time the viewer resolves the component of a file (including
+	 * adjacent files of a slideshow).
+	 *
+	 * @param fileInfo - The file info of the file to check
+	 * @return Whether this handler should be used to display the file
+	 */
+	canHandle?: (fileInfo: Record<string, unknown>) => boolean
 }
 
 /**
@@ -68,7 +86,7 @@ export function registerHandler(handler: IHandler): void {
  * @param handler - The handler to validate
  */
 function validateHandler(handler: IHandler) {
-	const { id, mimes, mimesAliases, component } = handler
+	const { id, mimes, mimesAliases, component, canHandle } = handler
 
 	// checking valid handler id
 	if (!id || id.trim() === '' || typeof id !== 'string') {
@@ -83,5 +101,10 @@ function validateHandler(handler: IHandler) {
 	// checking valid handler component data
 	if ((!component || (typeof component !== 'object' && typeof component !== 'function'))) {
 		throw new Error('The handler does not have a valid component')
+	}
+
+	// checking valid per-file matcher, if any
+	if (canHandle !== undefined && typeof canHandle !== 'function') {
+		throw new Error('The handler canHandle property must be a function')
 	}
 }

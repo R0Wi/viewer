@@ -245,6 +245,7 @@ export default defineComponent({
 			components: {},
 			mimeGroups: {},
 			registeredHandlers: {},
+			fileMatchers: [],
 
 			// Files variables
 			currentIndex: 0,
@@ -754,19 +755,20 @@ export default defineComponent({
 				return
 			}
 
-			// get original mime and alias
+			// get original mime
 			const mime = fileInfo.mime
-			const alias = mime.split('/')[0]
 
 			let handler
 			// Try provided handler, if any
 			if (overrideHandlerId !== null) {
-				const overrideHandler = Object.values(this.registeredHandlers).find(h => h.id === overrideHandlerId)
+				const overrideHandler = [...Object.values(this.registeredHandlers), ...this.fileMatchers]
+					.find(h => h.id === overrideHandlerId)
 				handler = overrideHandler ?? handler
 			}
-			// If no provided handler, or provided handler not found: try a supported handler with mime/mime-alias
+			// If no provided handler, or provided handler not found:
+			// try a per-file matcher or a supported handler with mime/mime-alias
 			if (!handler) {
-				handler = this.registeredHandlers[mime] ?? this.registeredHandlers[alias]
+				handler = this.getHandlerForFile(fileInfo)
 			}
 
 			// if we don't have a handler for this mime, abort
@@ -857,6 +859,62 @@ export default defineComponent({
 		},
 
 		/**
+		 * Find a handler with a per-file matcher claiming the given file, if any
+		 *
+		 * @param {object} fileInfo the file info to find a matcher for
+		 * @return {object|undefined} the matching handler, if any
+		 */
+		findFileMatcher(fileInfo) {
+			const mime = fileInfo?.mime ?? ''
+			const alias = mime.split('/')[0]
+
+			return this.fileMatchers.find(handler => {
+				if (!handler.mimes.includes(mime) && !handler.mimes.includes(alias)) {
+					return false
+				}
+				try {
+					return handler.canHandle(fileInfo) === true
+				} catch (error) {
+					logger.error('Error while checking per-file matcher', { handler, fileInfo, error })
+					return false
+				}
+			})
+		},
+
+		/**
+		 * Get the handler responsible for displaying a file.
+		 * Handlers with a per-file matcher have precedence over the handler
+		 * the mime type is registered to.
+		 *
+		 * @param {object} fileInfo the file info to find a handler for
+		 * @return {object|undefined} the matching handler, if any
+		 */
+		getHandlerForFile(fileInfo) {
+			const mime = fileInfo?.mime ?? ''
+			const alias = mime.split('/')[0]
+
+			return this.findFileMatcher(fileInfo)
+				?? this.registeredHandlers[mime]
+				?? this.registeredHandlers[alias]
+		},
+
+		/**
+		 * Get the component to render a file with, taking
+		 * per-file matchers into account.
+		 *
+		 * @param {object} fileInfo the file info to find a component for
+		 * @return {object|undefined} the component, if any
+		 */
+		getComponentForFile(fileInfo) {
+			const mime = fileInfo?.mime ?? ''
+			const alias = mime.split('/')[0]
+
+			return this.findFileMatcher(fileInfo)?.component
+				?? this.components[mime]
+				?? this.components[alias]
+		},
+
+		/**
 		 * Open the view and display the file from the file list
 		 *
 		 * @param {object} fileInfo the opened file info
@@ -864,13 +922,19 @@ export default defineComponent({
 		openFileFromList(fileInfo) {
 			// override mimetype if existing alias
 			const mime = fileInfo.mime
-			this.currentFile = new File(fileInfo, mime, this.components[mime])
+			const handler = this.getHandlerForFile(fileInfo)
+			// Keep the exposed handler id in sync while navigating: with
+			// per-file matchers, two files of the same mime type can be
+			// displayed by different handlers (e.g. a photosphere and a
+			// regular jpeg in the same slideshow).
+			this.handlerId = handler?.id ?? this.handlerId
+			this.currentFile = new File(fileInfo, mime, handler?.component)
 			this.changeSidebar()
 			this.updatePreviousNext()
 		},
 
 		async compareFile(fileInfo) {
-			this.comparisonFile = new File(fileInfo, fileInfo.mime, this.components[fileInfo.mime])
+			this.comparisonFile = new File(fileInfo, fileInfo.mime, this.getComponentForFile(fileInfo))
 		},
 
 		/**
@@ -890,9 +954,9 @@ export default defineComponent({
 			const next = this.fileList[this.currentIndex + 1]
 
 			if (prev) {
-				const mime = prev.mime
-				if (this.components[mime]) {
-					this.previousFile = new File(prev, mime, this.components[mime])
+				const component = this.getComponentForFile(prev)
+				if (component) {
+					this.previousFile = new File(prev, prev.mime, component)
 				}
 			} else {
 				// RESET
@@ -900,9 +964,9 @@ export default defineComponent({
 			}
 
 			if (next) {
-				const mime = next.mime
-				if (this.components[mime]) {
-					this.nextFile = new File(next, mime, this.components[mime])
+				const component = this.getComponentForFile(next)
+				if (component) {
+					this.nextFile = new File(next, next.mime, component)
 				}
 			} else {
 				// RESET
@@ -926,7 +990,8 @@ export default defineComponent({
 		 */
 		registerHandler(handler) {
 			// checking if handler is not already registered
-			if (handler.id && Object.values(this.registeredHandlers).findIndex((h) => h.id === handler.id) > -1) {
+			if (handler.id && (Object.values(this.registeredHandlers).findIndex((h) => h.id === handler.id) > -1
+				|| this.fileMatchers.findIndex((h) => h.id === handler.id) > -1)) {
 				logger.error('The following handler is already registered', { handler })
 				return
 			}
@@ -954,8 +1019,24 @@ export default defineComponent({
 				return
 			}
 
+			// checking valid per-file matcher, if any
+			if (handler.canHandle !== undefined && typeof handler.canHandle !== 'function') {
+				logger.error('The following handler doesn\'t have a valid canHandle function', { handler })
+				return
+			}
+
 			// force apply mixin
 			handler.component.mixins = [...handler?.component?.mixins ?? [], Mime]
+
+			// Handlers with a per-file matcher do not own their mime types
+			// exclusively: they claim individual files at opening time via
+			// canHandle(). This allows them to target mimes that are already
+			// registered to another handler (e.g. photospheres within image/jpeg).
+			if (typeof handler.canHandle === 'function') {
+				Vue.component(handler.component.name, handler.component)
+				this.fileMatchers.push(handler)
+				return
+			}
 
 			// parsing mimes registration
 			if (handler.mimes) {
@@ -980,6 +1061,12 @@ export default defineComponent({
 		},
 
 		registerHandlerAlias(handler) {
+			// Handlers with a per-file matcher don't own their mime types,
+			// so they don't claim aliases either (see registerHandler)
+			if (typeof handler.canHandle === 'function') {
+				return
+			}
+
 			// parsing aliases registration
 			if (handler.mimesAliases) {
 				Object.keys(handler.mimesAliases).forEach(mime => {
@@ -1266,9 +1353,7 @@ export default defineComponent({
 			}
 
 			// Get the current handler for this file
-			const mime = this.currentFile.mime
-			const alias = mime?.split('/')[0]
-			const handler = this.registeredHandlers[mime] ?? this.registeredHandlers[alias]
+			const handler = this.getHandlerForFile(this.currentFile)
 
 			if (handler?.downloadCallback && typeof handler.downloadCallback === 'function') {
 				try {
