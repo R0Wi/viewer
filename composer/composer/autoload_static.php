@@ -22,8 +22,15 @@ class ComposerStaticInitViewer {
 	public static $classMap = [
 		'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
 		'OCA\\Viewer\\AppInfo\\Application' => __DIR__ . '/../..' . '/lib/AppInfo/Application.php',
+		'OCA\\Viewer\\Controller\\SettingsController' => __DIR__ . '/../..' . '/lib/Controller/SettingsController.php',
 		'OCA\\Viewer\\Event\\LoadViewer' => __DIR__ . '/../..' . '/lib/Event/LoadViewer.php',
 		'OCA\\Viewer\\Listener\\LoadViewerScript' => __DIR__ . '/../..' . '/lib/Listener/LoadViewerScript.php',
+		'OCA\\Viewer\\Model\\PhotosphereCroppingConfig' => __DIR__ . '/../..' . '/lib/Model/PhotosphereCroppingConfig.php',
+		'OCA\\Viewer\\Model\\PhotosphereMetadata' => __DIR__ . '/../..' . '/lib/Model/PhotosphereMetadata.php',
+		'OCA\\Viewer\\Sabre\\PhotospherePlugin' => __DIR__ . '/../..' . '/lib/Sabre/PhotospherePlugin.php',
+		'OCA\\Viewer\\Service\\PhotosphereConfig' => __DIR__ . '/../..' . '/lib/Service/PhotosphereConfig.php',
+		'OCA\\Viewer\\Service\\PhotosphereMetadataReader' => __DIR__ . '/../..' . '/lib/Service/PhotosphereMetadataReader.php',
+		'OCA\\Viewer\\Settings\\AdminSettings' => __DIR__ . '/../..' . '/lib/Settings/AdminSettings.php',
 	];
 
 	public static function getInitializer(ClassLoader $loader) {

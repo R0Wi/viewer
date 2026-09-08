@@ -18,6 +18,12 @@ SPDX-FileCopyrightText = "2019 Nextcloud GmbH"
 SPDX-License-Identifier = "LicenseRef-NextcloudTrademarks"
 
 [[annotations]]
+path = ["playwright/fixtures/photosphere.jpg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2019 Robin Windey <ro.windey@gmail.com>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
 path = ["composer.json", "composer.lock"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2020 Nextcloud GmbH and Nextcloud contributors"

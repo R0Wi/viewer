@@ -6,6 +6,9 @@
 import Images from '../models/images.js'
 import Videos from '../models/videos.js'
 import Audios from '../models/audios.js'
+import Photospheres from '../models/photospheres.js'
+import PhotosphereVideos from '../models/photosphereVideos.js'
+import { photospheresEnabled } from '../utils/photosphereUtils.ts'
 import logger from './logger.js'
 
 /**
@@ -69,6 +72,13 @@ export default class Viewer {
 		this.registerHandler(Images)
 		this.registerHandler(Videos)
 		this.registerHandler(Audios)
+
+		// Photosphere (360°) support is optional and can be
+		// disabled by the administrator
+		if (photospheresEnabled) {
+			this.registerHandler(Photospheres)
+			this.registerHandler(PhotosphereVideos)
+		}
 
 		logger.debug('OCA.Viewer initialized')
 	}
