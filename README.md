@@ -22,9 +22,18 @@ and displayed in an interactive panorama view, based on
 [photo-sphere-viewer](https://photo-sphere-viewer.js.org/). Videos can be displayed
 as 360° panoramas through the "View in 360°" entry of the file context menu.
 
-Recognition happens on the server by scanning the first bytes of jpeg files for
-XMP metadata (results are cached). Since this causes a little extra load, the
-feature can be turned off by an administrator under
+Recognition happens by scanning the first bytes of a jpeg file for XMP
+metadata once, ahead of time, when the file is uploaded or edited — not while
+browsing a folder. The result is stored using Nextcloud's
+[files metadata](https://docs.nextcloud.com/server/latest/developer_manual/digging_deeper/files_metadata.html)
+API, so viewing a folder never reads its jpegs on the server. Files that
+already existed before this feature was enabled get their metadata the same
+way the next time they're edited, or all at once by an administrator via:
+
+    occ files:scan --generate-metadata photospheres --all
+
+Since this still causes a little extra load on upload/edit, the feature can
+be turned off by an administrator under
 **Settings → Administration → Additional settings → Viewer**
 (app config value `photospheres_enabled`):
 

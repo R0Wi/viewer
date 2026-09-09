@@ -11,11 +11,10 @@ namespace OCA\Viewer\Sabre;
 use OCA\DAV\Connector\Sabre\File;
 use OCA\Viewer\Model\PhotosphereMetadata;
 use OCA\Viewer\Service\PhotosphereConfig;
-use OCA\Viewer\Service\PhotosphereMetadataReader;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCP\FilesMetadata\Exceptions\FilesMetadataNotFoundException;
+use OCP\FilesMetadata\Exceptions\FilesMetadataTypeException;
+use OCP\FilesMetadata\IFilesMetadataManager;
 use Psr\Log\LoggerInterface;
-use Sabre\DAV\ICollection;
 use Sabre\DAV\IFile;
 use Sabre\DAV\INode;
 use Sabre\DAV\PropFind;
@@ -27,6 +26,14 @@ use Sabre\DAV\ServerPlugin;
  * property, so that the viewer can recognize photospheres (360° images)
  * without additional requests.
  *
+ * The metadata itself is computed ahead of time by
+ * {@see \OCA\Viewer\Listener\PhotosphereMetadataListener} — on upload/edit,
+ * and through `occ files:scan --generate-metadata photospheres` for files
+ * that already existed before this feature was enabled — and stored via
+ * {@see IFilesMetadataManager}. This plugin only ever reads the
+ * already-computed value: it never opens the file itself, so answering a
+ * PROPFIND never costs file I/O, however many jpegs the folder contains.
+ *
  * Ported from the files_photospheres app
  * (https://github.com/nextcloud/files_photospheres).
  *
@@ -36,30 +43,19 @@ class PhotospherePlugin extends ServerPlugin {
 	// See src/utils/photosphereUtils.ts
 	public const string PROPERTY_PHOTOSPHERE_METADATA = '{http://nextcloud.org/ns}viewer-photosphere-metadata';
 
-	/** Lifetime of a cached scan result, in seconds */
-	private const int CACHE_TTL = 24 * 3600;
-
-	private ICache $cache;
-
 	/**
-	 * Request-local memo in front of {@see self::$cache}.
+	 * Files metadata key the photosphere metadata is stored under.
 	 *
-	 * ICacheFactory::createLocal() hands out a NullCache when the instance
-	 * has no local memcache configured. Without this layer every jpeg of a
-	 * directory would then be read twice per PROPFIND: once by the
-	 * directory pre-scan and once for the file's own property.
-	 *
-	 * @var array<string, ?PhotosphereMetadata>
+	 * @see \OCA\Viewer\Listener\PhotosphereMetadataListener
+	 * @see \OCA\Viewer\Migration\Version9000Date20260909120000
 	 */
-	private array $requestCache = [];
+	public const string METADATA_KEY = 'photosphere';
 
 	public function __construct(
-		private PhotosphereMetadataReader $metadataReader,
+		private IFilesMetadataManager $filesMetadataManager,
 		private PhotosphereConfig $photosphereConfig,
-		ICacheFactory $cacheFactory,
 		private LoggerInterface $logger,
 	) {
-		$this->cache = $cacheFactory->createLocal(get_class($this));
 	}
 
 	/**
@@ -85,8 +81,7 @@ class PhotospherePlugin extends ServerPlugin {
 		PropFind $propFind,
 		INode $node,
 	) {
-		if ((!($node instanceof IFile) && !($node instanceof ICollection))
-			|| is_null($propFind->getStatus(self::PROPERTY_PHOTOSPHERE_METADATA))) {
+		if (!($node instanceof IFile) || is_null($propFind->getStatus(self::PROPERTY_PHOTOSPHERE_METADATA))) {
 			return;
 		}
 
@@ -94,81 +89,48 @@ class PhotospherePlugin extends ServerPlugin {
 			return;
 		}
 
-		// We try to create a cache for the whole directory
-		// so that individual file XMP metadata requests are faster
-		if (($node instanceof ICollection) && $propFind->getDepth() !== 0) {
-			$this->cacheDirectory($node);
-		}
-
 		$propFind->handle(self::PROPERTY_PHOTOSPHERE_METADATA, function () use ($node) {
-			return $node instanceof File ? $this->getMetadataCached($node) : null;
+			return $node instanceof File ? $this->getMetadata($node) : null;
 		});
 	}
 
-	private function cacheDirectory(ICollection $directory): void {
-		$this->logger->debug('Start caching directory {dir}', ['dir' => $directory->getName()]);
-		$start = hrtime(true);
-
-		$children = $directory->getChildren();
-
-		foreach ($children as $child) {
-			if ($child instanceof File) {
-				$this->getMetadataCached($child);
-			}
+	private function getMetadata(File $file): ?PhotosphereMetadata {
+		$fileInfo = $file->getFileInfo();
+		if ($fileInfo->getMimetype() !== 'image/jpeg') {
+			return null;
 		}
 
-		$elapsedMs = (float)(hrtime(true) - $start) / 1e+6;
-		$this->logger->debug('Caching directory {dir} done. It took {ms}ms', ['dir' => $directory->getName(), 'ms' => $elapsedMs]);
-	}
-
-	private function getMetadataCached(File $file): ?PhotosphereMetadata {
-		$fileInfo = $file->getFileInfo();
 		$id = $file->getId();
-
 		if ($id === null) {
 			$this->logger->warning('File {file} has no id', ['file' => $file->getName()]);
 			return null;
 		}
 
-		if ($fileInfo->getMimetype() !== 'image/jpeg') {
+		try {
+			// Never generate: generating here would mean reading the file
+			// during a PROPFIND again, exactly what storing the metadata
+			// ahead of time is meant to avoid. A file with no metadata yet
+			// (not uploaded/edited nor covered by a metadata-generating
+			// rescan since this feature shipped) is simply treated as "not
+			// a photosphere" until one of those happens.
+			$metadata = $this->filesMetadataManager->getMetadata($id, false);
+		} catch (FilesMetadataNotFoundException) {
 			return null;
 		}
 
-		// The etag is part of the key so that editing a file invalidates its
-		// entry; entries of previous versions expire through the TTL.
-		$cacheKey = $id . '-' . $fileInfo->getEtag();
-
-		if (array_key_exists($cacheKey, $this->requestCache)) {
-			return $this->requestCache[$cacheKey];
+		if (!$metadata->hasKey(self::METADATA_KEY)) {
+			return null;
 		}
 
-		/** @var PhotosphereMetadata|array|null $cachedMetadata */
-		$cachedMetadata = $this->cache->get($cacheKey);
-
-		if ($cachedMetadata instanceof PhotosphereMetadata) {
-			$this->logger->debug('Cache hit for file {file}', ['file' => $file->getName()]);
-			return $this->requestCache[$cacheKey] = $cachedMetadata;
-		}
-		if (is_array($cachedMetadata)) {
-			$this->logger->debug('Cache hit for file {file}', ['file' => $file->getName()]);
-			return $this->requestCache[$cacheKey] = PhotosphereMetadata::fromArray($cachedMetadata);
-		}
-
-		$this->logger->debug('Cache miss for file {file}', ['file' => $file->getName()]);
 		try {
-			$metadata = $this->metadataReader->fromFile($file->getNode());
-		} catch (\Exception $e) {
-			$this->logger->warning('Could not read photosphere metadata of file {file}: {message}', [
+			return PhotosphereMetadata::fromArray($metadata->getArray(self::METADATA_KEY));
+		} catch (FilesMetadataTypeException $e) {
+			$this->logger->warning('Malformed photosphere metadata for file {file}: {message}', [
 				'file' => $file->getName(),
 				'message' => $e->getMessage(),
 				'exception' => $e,
 			]);
-			// Remember the failure too, so a broken file is not retried
-			// for every property of the same request
-			return $this->requestCache[$cacheKey] = null;
+			return null;
 		}
-		$this->cache->set($cacheKey, $metadata, self::CACHE_TTL);
-
-		return $this->requestCache[$cacheKey] = $metadata;
 	}
 }
