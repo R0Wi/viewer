@@ -40,6 +40,33 @@ export interface IHandler {
 	 * Viewer modal theme (one of 'dark', 'light', 'default')
 	 */
 	theme?: 'dark' | 'light' | 'default'
+
+	/**
+	 * Optional per-file matcher.
+	 *
+	 * When provided, the handler may claim individual files of the declared
+	 * mime types based on the file info (e.g. dav properties), taking
+	 * precedence over the handler the mime type is registered to. This allows
+	 * apps to provide a specialised view for a subset of files sharing a
+	 * generic mime type (e.g. 360° photospheres within image/jpeg). If
+	 * canHandle() returns false, the file falls back to the handler that
+	 * mime type is registered to, if any — there is no fallback for a mime
+	 * type with no other registered handler.
+	 *
+	 * The callback must be synchronous and side-effect free: it is evaluated
+	 * every time the viewer resolves the component of a file (including
+	 * adjacent files of a slideshow) — memoize it if the check is expensive.
+	 *
+	 * Handlers with canHandle() take precedence over one another in
+	 * registration order (first match wins) — there is no further priority
+	 * mechanism. `group` (see above) is not honored for these handlers: it
+	 * is tracked per mime type, and a matcher handler never owns its mime
+	 * type exclusively.
+	 *
+	 * @param fileInfo - The file info of the file to check
+	 * @return Whether this handler should be used to display the file
+	 */
+	canHandle?: (fileInfo: Record<string, unknown>) => boolean
 }
 
 /**
@@ -68,7 +95,7 @@ export function registerHandler(handler: IHandler): void {
  * @param handler - The handler to validate
  */
 function validateHandler(handler: IHandler) {
-	const { id, mimes, mimesAliases, component } = handler
+	const { id, mimes, mimesAliases, component, canHandle } = handler
 
 	// checking valid handler id
 	if (!id || id.trim() === '' || typeof id !== 'string') {
@@ -83,5 +110,10 @@ function validateHandler(handler: IHandler) {
 	// checking valid handler component data
 	if ((!component || (typeof component !== 'object' && typeof component !== 'function'))) {
 		throw new Error('The handler does not have a valid component')
+	}
+
+	// checking valid per-file matcher, if any
+	if (canHandle !== undefined && typeof canHandle !== 'function') {
+		throw new Error('The handler canHandle property must be a function')
 	}
 }

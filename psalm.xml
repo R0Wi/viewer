@@ -16,8 +16,34 @@
     </projectFiles>
 	<stubs>
 		<file name="tests/stubs/oca_files_event_loadadditionalscriptevent.php"/>
+		<file name="tests/stubs/oca_dav_connector_sabre_file.php"/>
+		<file name="tests/stubs/sabre.php"/>
 	</stubs>
     <extraFiles>
 		<directory name="vendor-bin/psalm/vendor/nextcloud/ocp" />
     </extraFiles>
+    <issueHandlers>
+        <!-- Not our code: issues inside the OCP api stubs, which are only
+             analysed because lib/ extends them (e.g. OCP\AppFramework\Controller) -->
+        <MissingClosureReturnType>
+            <errorLevel type="suppress">
+                <directory name="vendor-bin/psalm/vendor/nextcloud/ocp" />
+            </errorLevel>
+        </MissingClosureReturnType>
+        <MissingClosureParamType>
+            <errorLevel type="suppress">
+                <directory name="vendor-bin/psalm/vendor/nextcloud/ocp" />
+            </errorLevel>
+        </MissingClosureParamType>
+        <MixedArgument>
+            <errorLevel type="suppress">
+                <directory name="vendor-bin/psalm/vendor/nextcloud/ocp" />
+            </errorLevel>
+        </MixedArgument>
+        <InvalidTemplateParam>
+            <errorLevel type="suppress">
+                <directory name="vendor-bin/psalm/vendor/nextcloud/ocp" />
+            </errorLevel>
+        </InvalidTemplateParam>
+    </issueHandlers>
 </psalm>

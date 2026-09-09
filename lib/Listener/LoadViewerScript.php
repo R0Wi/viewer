@@ -11,6 +11,7 @@ namespace OCA\Viewer\Listener;
 use OCA\Files\Event\LoadAdditionalScriptsEvent;
 use OCA\Viewer\AppInfo\Application;
 use OCA\Viewer\Event\LoadViewer;
+use OCA\Viewer\Service\PhotosphereConfig;
 use OCP\AppFramework\Services\IInitialState;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -24,13 +25,16 @@ use OCP\Util;
 class LoadViewerScript implements IEventListener {
 	private IInitialState $initialStateService;
 	private IPreview $previewManager;
+	private PhotosphereConfig $photosphereConfig;
 
 	public function __construct(
 		IInitialState $initialStateService,
 		IPreview $previewManager,
+		PhotosphereConfig $photosphereConfig,
 	) {
 		$this->initialStateService = $initialStateService;
 		$this->previewManager = $previewManager;
+		$this->photosphereConfig = $photosphereConfig;
 	}
 
 	#[\Override]
@@ -44,5 +48,6 @@ class LoadViewerScript implements IEventListener {
 		Util::addInitScript(Application::APP_ID, 'viewer-init');
 		Util::addScript(Application::APP_ID, 'viewer-main', 'files');
 		$this->initialStateService->provideInitialState('enabled_preview_providers', array_keys($this->previewManager->getProviders()));
+		$this->initialStateService->provideInitialState('photospheres_enabled', $this->photosphereConfig->isPhotosphereSupportEnabled());
 	}
 }

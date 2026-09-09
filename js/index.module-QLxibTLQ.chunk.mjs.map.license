@@ -1,0 +1,11 @@
+SPDX-License-Identifier: MIT
+SPDX-FileCopyrightText: Damien 'Mistic' Sorel
+SPDX-FileCopyrightText: mrdoob
+
+This file is generated from multiple sources. Included packages:
+- @photo-sphere-viewer/core
+	- version: 5.15.1
+	- license: MIT
+- three
+	- version: 0.185.1
+	- license: MIT

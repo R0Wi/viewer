@@ -43,5 +43,43 @@ If you want to make your app compatible with this app, you can use the methods p
    ```
 3. Make sure your script is loaded with `\OCP\Util::addInitScript` so that the handler is registered **before** the viewer is loaded.
 
+### 🎯 Claim individual files of an already handled mime type
+
+Sometimes a specialised view only applies to a *subset* of files sharing a
+generic mime type (e.g. 360° photospheres are regular `image/jpeg` files with
+special XMP metadata). For this case a handler can provide a `canHandle`
+per-file matcher. Such handlers do not own their mime types exclusively —
+they claim individual files at opening time and take precedence over the
+handler the mime type is registered to:
+
+``` js
+import { registerHandler } from '@nextcloud/viewer'
+import PhotosphereView from 'PhotosphereView.vue'
+
+registerHandler({
+    id: 'photospheres',
+    mimes: ['image/jpeg'],
+    component: PhotosphereView,
+
+    // called with the file info every time the viewer resolves
+    // the component of a file — must be synchronous and fast.
+    // Custom WebDAV properties registered with `registerDavProperty`
+    // are available on the file info object (camelCased).
+    canHandle(fileInfo) {
+        return fileInfo.myCustomDavProperty === 'some-value'
+    },
+})
+```
+
+If `canHandle` returns `false`, the file is displayed by the regular handler
+of its mime type, if any — there is no fallback for a mime type with no
+other registered handler.
+
+If several handlers declare a `canHandle` matcher for overlapping mime
+types, the first one registered wins; there is no further priority
+mechanism. `group` (see above) is not honored for these handlers: it is
+tracked per mime type, and a matcher handler never owns its mime type
+exclusively.
+
 > [!TIP]
 > If you feel like your mime should be integrated on this repo, you can also create a pull request with your object on the `models` directory and the view on the `components` directory. Please have a look at what's already here and take example of it. 🙇‍♀️

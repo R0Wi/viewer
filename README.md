@@ -13,6 +13,38 @@ Show your latest holiday photos and videos like in the movies. Show a glimpse of
 ## 📋 Current support
 - Images
 - Videos
+- Photo spheres (360° images and videos)
+
+## 🌐 Photo spheres (360° media)
+Google photo sphere images (jpeg files carrying [GPano XMP metadata](https://developers.google.com/streetview/spherical-metadata),
+e.g. taken with the Google Camera app or 360° cameras) are automatically recognized
+and displayed in an interactive panorama view, based on
+[photo-sphere-viewer](https://photo-sphere-viewer.js.org/). Videos can be displayed
+as 360° panoramas through the "View in 360°" entry of the file context menu.
+
+Recognition happens by scanning the first bytes of a jpeg file for XMP
+metadata once, ahead of time, when the file is uploaded or edited — not while
+browsing a folder. The result is stored using Nextcloud's
+[files metadata](https://docs.nextcloud.com/server/latest/developer_manual/digging_deeper/files_metadata.html)
+API, so viewing a folder never reads its jpegs on the server. Files that
+already existed before this feature was enabled get their metadata the same
+way the next time they're edited, or all at once by an administrator via:
+
+    occ files:scan --generate-metadata photospheres --all
+
+Since this still causes a little extra load on upload/edit, the feature can
+be turned off by an administrator under
+**Settings → Administration → Additional settings → Viewer**
+(app config value `photospheres_enabled`):
+
+    # disable photosphere support
+    occ config:app:set viewer photospheres_enabled --value 0 --type boolean
+
+    # (re-)enable photosphere support
+    occ config:app:set viewer photospheres_enabled --value 1 --type boolean
+
+This functionality was previously provided by the
+[files_photospheres](https://github.com/nextcloud/files_photospheres) app.
 
 ## 🏗 Development setup
 1. ☁ Clone this app into the `apps` folder of your Nextcloud: `git clone https://github.com/nextcloud/viewer.git`

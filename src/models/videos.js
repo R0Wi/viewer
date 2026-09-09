@@ -4,21 +4,12 @@
  */
 
 import Videos from '../components/Videos.vue'
+import { VIDEO_MIMES, VIDEO_MIMES_ALIASES } from '../utils/videoMimes.ts'
 
 export default {
 	id: 'videos',
 	group: 'media',
-	mimes: [
-		'video/mpeg',
-		'video/ogg',
-		'video/webm',
-		'video/mp4',
-		'video/x-m4v',
-		'video/x-flv',
-		'video/quicktime',
-	],
-	mimesAliases: {
-		'video/x-matroska': 'video/webm',
-	},
+	mimes: VIDEO_MIMES,
+	mimesAliases: VIDEO_MIMES_ALIASES,
 	component: Videos,
 }

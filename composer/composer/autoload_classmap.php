@@ -8,6 +8,13 @@ $baseDir = dirname($vendorDir);
 return [
 	'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
 	'OCA\\Viewer\\AppInfo\\Application' => $baseDir . '/lib/AppInfo/Application.php',
+	'OCA\\Viewer\\Controller\\SettingsController' => $baseDir . '/lib/Controller/SettingsController.php',
 	'OCA\\Viewer\\Event\\LoadViewer' => $baseDir . '/lib/Event/LoadViewer.php',
 	'OCA\\Viewer\\Listener\\LoadViewerScript' => $baseDir . '/lib/Listener/LoadViewerScript.php',
+	'OCA\\Viewer\\Model\\PhotosphereCroppingConfig' => $baseDir . '/lib/Model/PhotosphereCroppingConfig.php',
+	'OCA\\Viewer\\Model\\PhotosphereMetadata' => $baseDir . '/lib/Model/PhotosphereMetadata.php',
+	'OCA\\Viewer\\Sabre\\PhotospherePlugin' => $baseDir . '/lib/Sabre/PhotospherePlugin.php',
+	'OCA\\Viewer\\Service\\PhotosphereConfig' => $baseDir . '/lib/Service/PhotosphereConfig.php',
+	'OCA\\Viewer\\Service\\PhotosphereMetadataReader' => $baseDir . '/lib/Service/PhotosphereMetadataReader.php',
+	'OCA\\Viewer\\Settings\\AdminSettings' => $baseDir . '/lib/Settings/AdminSettings.php',
 ];
