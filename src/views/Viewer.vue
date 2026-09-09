@@ -779,9 +779,7 @@ export default defineComponent({
 				return
 			}
 
-			this.theme = handler.theme ?? 'dark'
-			const defaultThemeIsLight = window.getComputedStyle(document.body).getPropertyValue('--background-invert-if-dark') !== 'invert(100%)'
-			this.lightBackdrop = handler.theme === 'light' || (handler.theme === 'default' && defaultThemeIsLight)
+			this.applyHandlerTheme(handler)
 			this.handlerId = handler.id
 
 			this.currentFile = new File(fileInfo, mime, handler.component)
@@ -915,6 +913,21 @@ export default defineComponent({
 		},
 
 		/**
+		 * Apply a handler's theme (dark/light backdrop) to the viewer.
+		 * Shared between openFileInfo() (initial open) and
+		 * openFileFromList() (navigation), so that navigating to a file
+		 * whose handler declares a different theme than the previous
+		 * one is reflected correctly.
+		 *
+		 * @param {object} handler the handler about to render the file
+		 */
+		applyHandlerTheme(handler) {
+			this.theme = handler.theme ?? 'dark'
+			const defaultThemeIsLight = window.getComputedStyle(document.body).getPropertyValue('--background-invert-if-dark') !== 'invert(100%)'
+			this.lightBackdrop = handler.theme === 'light' || (handler.theme === 'default' && defaultThemeIsLight)
+		},
+
+		/**
 		 * Open the view and display the file from the file list
 		 *
 		 * @param {object} fileInfo the opened file info
@@ -923,11 +936,15 @@ export default defineComponent({
 			// override mimetype if existing alias
 			const mime = fileInfo.mime
 			const handler = this.getHandlerForFile(fileInfo)
-			// Keep the exposed handler id in sync while navigating: with
-			// per-file matchers, two files of the same mime type can be
-			// displayed by different handlers (e.g. a photosphere and a
-			// regular jpeg in the same slideshow).
-			this.handlerId = handler?.id ?? this.handlerId
+			// Keep the exposed handler id and theme in sync while
+			// navigating: with per-file matchers, two files of the same
+			// mime type can be displayed by different handlers (e.g. a
+			// photosphere and a regular jpeg in the same slideshow), each
+			// with its own theme.
+			if (handler) {
+				this.handlerId = handler.id
+				this.applyHandlerTheme(handler)
+			}
 			this.currentFile = new File(fileInfo, mime, handler?.component)
 			this.changeSidebar()
 			this.updatePreviousNext()
@@ -1032,6 +1049,10 @@ export default defineComponent({
 			// exclusively: they claim individual files at opening time via
 			// canHandle(). This allows them to target mimes that are already
 			// registered to another handler (e.g. photospheres within image/jpeg).
+			// handler.group is intentionally not applied here: groups are
+			// tracked per mime type (see registerGroups()), and a matcher
+			// handler sharing a mime with another handler must not override
+			// the group that handler already registered for it.
 			if (typeof handler.canHandle === 'function') {
 				Vue.component(handler.component.name, handler.component)
 				this.fileMatchers.push(handler)

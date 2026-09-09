@@ -27,7 +27,10 @@ import logger from './logger.js'
  *   based on the file info (e.g. dav properties), taking precedence over the handler
  *   the mime type is registered to. This allows apps to provide a specialised view
  *   for a subset of files sharing a generic mime type (e.g. 360° photospheres
- *   within image/jpeg).
+ *   within image/jpeg). Handlers with canHandle() take precedence over one another
+ *   in registration order (first match wins); `group` is not honored for them, since
+ *   it is tracked per mime type and such a handler never owns its mime type
+ *   exclusively.
  */
 
 /**

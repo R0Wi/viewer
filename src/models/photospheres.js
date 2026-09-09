@@ -6,6 +6,18 @@
 import Photospheres from '../components/Photospheres.vue'
 import { parsePhotosphereMetadata, isPhotosphere, isWebGl2Supported } from '../utils/photosphereUtils.ts'
 
+/**
+ * Memoizes the parsed metadata per fileInfo object. canHandle() is
+ * evaluated for up to three files (previous/current/next) on every
+ * navigation step, and JSON.parse()-ing the same string repeatedly on
+ * every one of those calls is wasted work.
+ *
+ * A WeakMap is used so entries are released once a fileInfo object is no
+ * longer referenced elsewhere, rather than growing unbounded across a long
+ * slideshow session.
+ */
+const metadataCache = new WeakMap()
+
 export default {
 	id: 'photospheres',
 	mimes: [
@@ -24,7 +36,18 @@ export default {
 	 * @return {boolean} true if the file should be opened as a photosphere
 	 */
 	canHandle(fileInfo) {
-		const metadata = parsePhotosphereMetadata(fileInfo?.viewerPhotosphereMetadata)
+		if (!fileInfo || typeof fileInfo !== 'object') {
+			return false
+		}
+
+		let metadata
+		if (metadataCache.has(fileInfo)) {
+			metadata = metadataCache.get(fileInfo)
+		} else {
+			metadata = parsePhotosphereMetadata(fileInfo.viewerPhotosphereMetadata)
+			metadataCache.set(fileInfo, metadata)
+		}
+
 		return isPhotosphere(metadata) && isWebGl2Supported()
 	},
 }
