@@ -57,6 +57,7 @@ class PhotosphereMetadata implements XmlSerializable {
 		// Serialize as JSON text content instead of XML sub-elements:
 		// the WebDAV client reads element.textContent, which would
 		// concatenate all child text nodes when using XML sub-elements.
-		$writer->write(json_encode($this->toArray()));
+		$json = json_encode($this->toArray());
+		$writer->write($json !== false ? $json : '{}');
 	}
 }

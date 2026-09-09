@@ -64,11 +64,16 @@ class PhotosphereMetadataReader {
 			return $metadata;
 		}
 
-		// Check if we should use the panorama viewer
-		$metadata->usePanoramaViewer = $this->shouldUsePanoramaViewer($fileString);
+		// $posEnd is an offset into the whole $fileString, not into the
+		// substring starting at $posStart, so it must be adjusted by
+		// $posStart when used as a length below.
+		$buffer = substr($fileString, $posStart, $posEnd - $posStart + strlen(self::XMP_END_TAG));
 
-		$bufferCutStart = substr($fileString, $posStart);
-		$buffer = substr($bufferCutStart, 0, $posEnd + strlen(self::XMP_END_TAG));
+		// Check if we should use the panorama viewer. Restricted to the
+		// extracted XMP block itself, not the whole (up to 800kb) read
+		// buffer, so that a tag occurring outside of the actual XMP data
+		// can't trigger a false positive.
+		$metadata->usePanoramaViewer = $this->shouldUsePanoramaViewer($buffer);
 
 		$this->fillCroppingConfig($buffer, $metadata);
 
