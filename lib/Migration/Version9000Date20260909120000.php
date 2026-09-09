@@ -37,7 +37,7 @@ class Version9000Date20260909120000 extends SimpleMigrationStep {
 	 * @param array{tablePrefix?: string} $options
 	 */
 	#[\Override]
-	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options) {
+	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
 		$this->filesMetadataManager->initMetadata(
 			PhotospherePlugin::METADATA_KEY,
 			IMetadataValueWrapper::TYPE_ARRAY,
